@@ -2,7 +2,7 @@
 Stixel c++ code based on gish523's algo.
 
 ### Requirement
-Opencv4.0
+Opencv4.0.0
 
 ### Compilation
 ```bash
@@ -19,5 +19,7 @@ Make sure your are in the `build` folder to run the executables.
 ./stixel [dir] [camera param]
 
 dir should be compatible with Kitti dataset.   
-./stixel ../data/ ../camera.xml
+./stixel ../data/ ../camera.yml
+
+../data/ 下应该有两个文件夹, 分别是image_2 和image_3, 分别代表双目视觉的左右两幅图片
 
