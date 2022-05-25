@@ -139,35 +139,38 @@ int main(int argc, char* argv[])
 
 
 
-        I0_path = directory + "/" + "image_2" + "/" + image_name;
-        I1_path = directory + "/" + "image_3" + "/" + image_name;
-        cout << image_name.c_str() << endl;
-        bboxFile << image_name << endl;
-        cout<<"I0: "<<I0_path<<endl;
-        cout<<"I1: "<<I1_path<<endl;
+        // I0_path = directory + "/" + "image_2" + "/" + image_name;
+        // I1_path = directory + "/" + "image_3" + "/" + image_name;
+        // cout << image_name.c_str() << endl;
+        // bboxFile << image_name << endl;
+        // cout<<"I0: "<<I0_path<<endl;
+        // cout<<"I1: "<<I1_path<<endl;
 
-        Mat I0 = imread(I0_path);   
-        Mat I1 = imread(I1_path);
+        // Mat I0 = imread(I0_path);   
+        // Mat I1 = imread(I1_path);
 
-        if (I0.empty() || I1.empty())
-        {
-            std::cerr << "failed to read any image." << std::endl;
-            break;
-        }
+        // if (I0.empty() || I1.empty())
+        // {
+        //     std::cerr << "failed to read any image." << std::endl;
+        //     break;
+        // }
 
-        CV_Assert(I0.size() == I1.size() && I0.type() == I1.type());
+        // CV_Assert(I0.size() == I1.size() && I0.type() == I1.type());
 
-        //convert to gray
-        Mat I0_Gray, I1_Gray;
-        cvtColor(I0, I0_Gray, cv::COLOR_BGR2GRAY);
-        cvtColor(I1, I1_Gray, cv::COLOR_BGR2GRAY);
+        // //convert to gray
+        // Mat I0_Gray, I1_Gray;
+        // cvtColor(I0, I0_Gray, cv::COLOR_BGR2GRAY);
+        // cvtColor(I1, I1_Gray, cv::COLOR_BGR2GRAY);
 
         // imshow("I0", I0);
         // imshow("I1", I1);
 
+        // 用tif 图替代双目视差计算
+        cv::Mat depthtif = imread("../10001555884568.tif", IMREAD_UNCHANGED); // UNCHANGED是重点
+
         const auto t1 = std::chrono::system_clock::now();
 
-        sgm.compute(I0_Gray, I1_Gray, D0, D1);    // ! 双目图像匹配 SGM算法
+        // sgm.compute(I0_Gray, I1_Gray, D0, D1);    // ! 双目图像匹配 SGM算法
 
         const auto t2 = std::chrono::system_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -256,9 +259,7 @@ int main(int argc, char* argv[])
         // cv::imwrite("/home/endless/stixel/data/stixelsImage" + image_name, showStixel);
         // waitKey();
         
-        cv::Mat depthtif = imread("../10001555884568.tif", IMREAD_UNCHANGED); // UNCHANGED是重点
-        cout << "depthtif size: " << depthtif.size() << endl;
-        cout << "tiftif" << cv::format(depthtif, cv::Formatter::FMT_DEFAULT) << endl;
+        
     }
     bboxFile.close();
 
