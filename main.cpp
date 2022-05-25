@@ -74,6 +74,18 @@ static void drawStixel(cv::Mat& img, const Stixel& stixel, cv::Scalar color)
 	const cv::Point tl(stixel.u - radius, stixel.vT);
 	const cv::Point br(stixel.u + radius, stixel.vB);
 	cv::rectangle(img, cv::Rect(tl, br), color, -1);
+} 
+
+static void init_stix_param(StixelWorld::Parameters& stix_param, const cv::FileStorage& cvfs) {
+    stix_param.camera.fu = cvfs["FocalLengthX"];
+    stix_param.camera.fv = cvfs["FocalLengthY"];
+    stix_param.camera.u0 = cvfs["CenterX"];
+    stix_param.camera.v0 = cvfs["CenterY"];
+    stix_param.camera.baseline = cvfs["BaseLine"];
+    stix_param.camera.height = cvfs["Height"];
+    stix_param.camera.tilt = cvfs["Tilt"];
+    stix_param.minDisparity = -1;
+    stix_param.maxDisparity = param.numDisparities;
 }
 
 int main(int argc, char* argv[])
@@ -84,9 +96,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    // string directory = "/home/endless/stixel/data/";
     string directory = argv[1];
-    // argv = ""
 
     DIR *dp, *dp1;     // * 文件夹指针
     struct dirent *ep;  // * 用于获取文件名
@@ -116,62 +126,32 @@ int main(int argc, char* argv[])
         cout << "meidakai " << endl;
     while ((ep = readdir(dp)) != NULL) 
     {
-        // Skip directories
         if (!strcmp (ep->d_name, "."))
             continue;
         if (!strcmp (ep->d_name, ".."))
             continue;
 
-        //        string postfix = "_10.png";
-        //        string::size_type idx;
-
-        string image_name = ep->d_name;
-
-#if 0
-        //Only _10 has groundtruth
-        idx = image_name.find(postfix);
-
-        if(idx == string::npos )
-            continue;  
-#endif
-
-
-
-
-
-        // I0_path = directory + "/" + "image_2" + "/" + image_name;
-        // I1_path = directory + "/" + "image_3" + "/" + image_name;
-        // cout << image_name.c_str() << endl;
-        // bboxFile << image_name << endl;
-        // cout<<"I0: "<<I0_path<<endl;
-        // cout<<"I1: "<<I1_path<<endl;
-
-        // Mat I0 = imread(I0_path);   
-        // Mat I1 = imread(I1_path);
-
-        // if (I0.empty() || I1.empty())
-        // {
-        //     std::cerr << "failed to read any image." << std::endl;
-        //     break;
-        // }
-
-        // CV_Assert(I0.size() == I1.size() && I0.type() == I1.type());
-
-        // //convert to gray
-        // Mat I0_Gray, I1_Gray;
-        // cvtColor(I0, I0_Gray, cv::COLOR_BGR2GRAY);
-        // cvtColor(I1, I1_Gray, cv::COLOR_BGR2GRAY);
-
-        // imshow("I0", I0);
-        // imshow("I1", I1);
-
-        // 用tif 图替代双目视差计算
-        cv::Mat depthtif = imread("../10001555884568.tif", IMREAD_UNCHANGED); // UNCHANGED是重点
 
         const auto t1 = std::chrono::system_clock::now();
 
+        // 不使用sgm 视差匹配算法, 用tiff 深度图替代
         // sgm.compute(I0_Gray, I1_Gray, D0, D1);    // ! 双目图像匹配 SGM算法
 
+        StixelWorld::Parameters stix_param;
+        const cv::FileStorage cvfs(argv[2], FileStorage::READ);
+        bool opened = cvfs.isOpened();
+        init_stix_param(stix_param, cvfs);
+
+	    
+//        const cv::FileNode node = cvfs.getFirstTopLevelNode();
+        // const cv::FileNode node = cvfs.root();
+        
+	    
+
+        StixelWorld stixelWorld(stix_param);
+
+
+        
         const auto t2 = std::chrono::system_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         std::cout << "disparity computation time: " << duration << "[msec]" << std::endl;
@@ -196,25 +176,7 @@ int main(int argc, char* argv[])
         std::vector<std::vector<int>> bboxes;
         const auto t3 = std::chrono::system_clock::now();
 
-        StixelWorld::Parameters stix_param;
-
-	    const cv::FileStorage cvfs(argv[2], FileStorage::READ);
-
-        bool opened = cvfs.isOpened();
-	    
-//        const cv::FileNode node = cvfs.getFirstTopLevelNode();
-        // const cv::FileNode node = cvfs.root();
-        stix_param.camera.fu = cvfs["FocalLengthX"];
-        stix_param.camera.fv = cvfs["FocalLengthY"];
-        stix_param.camera.u0 = cvfs["CenterX"];
-        stix_param.camera.v0 = cvfs["CenterY"];
-        stix_param.camera.baseline = cvfs["BaseLine"];
-        stix_param.camera.height = cvfs["Height"];
-        stix_param.camera.tilt = cvfs["Tilt"];
-        stix_param.minDisparity = -1;
-        stix_param.maxDisparity = param.numDisparities;
-
-        StixelWorld stixelWorld(stix_param);
+        
         
         // ! 从计算视差到这里，一系列操作就是为了得到下面这个compute需要的视差图fdisp
         // ! 所以在这之前的操作都可以省略, 直接通过tif 计算出来的tifdisp 替换fdisp
@@ -230,34 +192,17 @@ int main(int argc, char* argv[])
         const auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
         std::cout << "stixel computation time: " << 1e-3 * duration << "[msec]" << std::endl;
 
-        // draw stixels
-        cv::Mat showStixel = I0.clone();
-        cv::Mat stixelImg = cv::Mat::zeros(I0.size(), showStixel.type());
-
-        // stixel
-        for (const auto& stixel : stixels)
-            drawStixel(stixelImg, stixel, dispToColor(stixel.disp, (float)param.numDisparities));
-
         // bbox
         for(auto &bbox : bboxes)
         {
             // 0 3 2 1 是 左上角坐标点x1 y1 和右下角坐标点 x2 y2 的坐标
-            cv::rectangle(showStixel, Point(bbox[0], bbox[3]), Point(bbox[2], bbox[1]), Scalar(0,0,255), 2, 8, 0);
+            // cv::rectangle(showStixel, Point(bbox[0], bbox[3]), Point(bbox[2], bbox[1]), Scalar(0,0,255), 2, 8, 0);
             bboxFile << "(" << bbox[0] << "," << bbox[3] << ")" << endl;
             bboxFile << "(" << bbox[2] << "," << bbox[1] << ")" << endl;
             bboxFile.flush();
         }
 
 
-		showStixel = showStixel + 0.5 * stixelImg;
-		// cv::imshow("stixels", showStixel);
-        std::cout << "/home/endless/stixel/data/stixelsImage" + image_name << std::endl;
-
-        
-
-
-        // cv::imwrite("/home/endless/stixel/data/stixelsImage" + image_name, showStixel);
-        // waitKey();
         
         
     }
