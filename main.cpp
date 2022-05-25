@@ -214,10 +214,11 @@ int main(int argc, char* argv[])
         StixelWorld stixelWorld(stix_param);
         
         // ! 从计算视差到这里，一系列操作就是为了得到下面这个compute需要的视差图fdisp
+        // ! 所以在这之前的操作都可以省略, 直接通过tif 计算出来的tifdisp 替换fdisp
         stixelWorld.compute(fdisp, stixels, bboxes);
 
         cv::Mat deepImg = cv::Mat::zeros(fdisp.size(), fdisp.type());
-        stixelWorld.computeDepth(fdisp, deepImg);
+        // stixelWorld.computeDepth(fdisp, deepImg);
         // cv::imshow("deep", deepImg);
 
 
@@ -255,8 +256,12 @@ int main(int argc, char* argv[])
         // cv::imwrite("/home/endless/stixel/data/stixelsImage" + image_name, showStixel);
         // waitKey();
         
+        cv::Mat depthtif = imread("../10001555884568.tif", IMREAD_UNCHANGED); // UNCHANGED是重点
+        cout << "depthtif size: " << depthtif.size() << endl;
+        cout << "tiftif" << cv::format(depthtif, cv::Formatter::FMT_DEFAULT) << endl;
     }
     bboxFile.close();
 
+    
     return 0; 
 }

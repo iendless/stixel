@@ -649,3 +649,7 @@ void StixelWorld::computeDepth(const cv::Mat& disparity, cv::Mat& depthMat)
         }
     }
 }
+
+void StixelWorld::computeDisp(const cv::Mat& disparity, cv::Mat& depthMat) {
+    
+}

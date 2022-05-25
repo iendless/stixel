@@ -88,6 +88,8 @@ public:
 	void compute(const cv::Mat& disparity, std::vector<Stixel>& stixels, std::vector<std::vector<int>>& bboxes);
 
     void computeDepth(const cv::Mat& disparity, cv::Mat& depthMat);
+
+    void computeDisp(const cv::Mat& disparity, cv::Mat& depthMat);
     
     
 private:
