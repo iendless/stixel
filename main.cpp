@@ -77,6 +77,7 @@ static void drawStixel(cv::Mat& img, const Stixel& stixel, cv::Scalar color)
 }
 
 static void outputDispData(Mat& disp) {
+    imwrite("../sgmDisp.png", disp);
     ofstream dispFile("/home/endless/demo/stixel/dispData.txt", ios::app);
     dispFile << cv::format(disp, cv::Formatter::FMT_DEFAULT) << endl;
     dispFile << endl;
