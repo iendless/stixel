@@ -1,8 +1,8 @@
 %YAML:1.0
-FocalLengthX: 721.5377
-FocalLengthY: 721.5377
-CenterX: 609.5593
-CenterY: 172.8540
-BaseLine: 0.214382
+FocalLengthX: 500
+FocalLengthY: 500
+CenterX: 320
+CenterY: 180
+BaseLine: 0.12
 Height: 1.65
 Tilt: 0.0
