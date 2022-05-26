@@ -111,6 +111,13 @@ static void depthToDisp(cv::Mat& depthMat, cv::Mat& dispMat, CoordinateTransform
     }
 }
 
+static void outputDispData(Mat& disp) {
+    ofstream dispFile("/home/endless/demo/stixel/dispData.txt", ios::app);
+    dispFile << cv::format(disp, cv::Formatter::FMT_DEFAULT) << endl;
+    dispFile << endl;
+    dispFile.flush();
+}
+
 int main(int argc, char* argv[])
 {
     if (argc < 3)
@@ -197,6 +204,7 @@ int main(int argc, char* argv[])
         dispTiff.convertTo(fdisp, CV_32F);
         cout << "fdisp channels " << fdisp.channels() << endl;
         //        Mat D0_16u(D0.size(), CV_16U);
+        outputDispData(fdisp);
 
         // calculate stixels
         std::vector<Stixel> stixels;
