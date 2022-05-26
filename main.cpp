@@ -9,6 +9,7 @@
 #include "stixel_world.h"
 
 #include <dirent.h>
+#include <math.h>
 
 using namespace cv;
 using namespace std;
@@ -85,7 +86,29 @@ static void init_stix_param(StixelWorld::Parameters& stix_param, const cv::FileS
     stix_param.camera.height = cvfs["Height"];
     stix_param.camera.tilt = cvfs["Tilt"];
     stix_param.minDisparity = -1;
-    stix_param.maxDisparity = param.numDisparities;
+    stix_param.maxDisparity = 64;
+}
+
+static void depthToDisp(cv::Mat& depthMat, cv::Mat& dispMat, CoordinateTransform coordinateTransform) {
+    cout << "depth channels: " << depthMat.channels() << endl;
+    int height = depthMat.rows;
+    int width = depthMat.cols;
+
+    float fu = coordinateTransform.camera.fu;
+    float baseline = coordinateTransform.camera.baseline;
+
+    for(int i = 0; i < height; i++) {
+        for(int j = 0 ; j < width; j++) {
+            float curDep = depthMat.at<float>(i, j);
+            if(!isnan(curDep) && !isinf(curDep)) {
+                dispMat.at<float>(i, j) = coordinateTransform.toD(0, depthMat.at<float>(i, j));
+                // cout << dispMat.at<float>(i, j) << endl;
+            }
+            else {
+                dispMat.at<float>(i, j) = 0;
+            }
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -141,33 +164,37 @@ int main(int argc, char* argv[])
         const cv::FileStorage cvfs(argv[2], FileStorage::READ);
         bool opened = cvfs.isOpened();
         init_stix_param(stix_param, cvfs);
+        CoordinateTransform coordinateTransform(stix_param.camera);
+        cv::Mat depthTiff = imread("../10001555884394.tif", IMREAD_UNCHANGED);
+        // cout << cv::format(depthTiff, cv::Formatter::FMT_DEFAULT) << endl;
+        cout << "depthTiff dtype " << depthTiff.type() << endl;
+        cv::Mat dispTiff = depthTiff;
+        depthToDisp(depthTiff, dispTiff, coordinateTransform);
+
+
 
 	    
-//        const cv::FileNode node = cvfs.getFirstTopLevelNode();
-        // const cv::FileNode node = cvfs.root();
-        
 	    
 
-        StixelWorld stixelWorld(stix_param);
-
+        Mat fdisp;
 
         
         const auto t2 = std::chrono::system_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        std::cout << "disparity computation time: " << duration << "[msec]" << std::endl;
+        cout << "disparity computation time: " << duration << "[msec]" << std::endl;
         
         // 伪色彩加工
-        D0.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));
-        cv::applyColorMap(draw, draw, cv::COLORMAP_JET);   
-        draw.setTo(0, D0 == SemiGlobalMatching::DISP_INV);
+        // dispTiff.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));    // 第三个参数是放缩尺度, 结果会乘以这个数
+        // cv::applyColorMap(draw, draw, cv::COLORMAP_JET);   
+        // draw.setTo(0, dispTiff == SemiGlobalMatching::DISP_INV);  // 添加一个mask, 进行数据清理, 具体没懂
 
         // cv::imshow("disparity", draw);
 
-        Mat fdisp;
 
-        // D0是真正的视差图
-        cout << "D0 channels " << D0.channels() << endl;
-        D0.convertTo(fdisp, CV_32F, 1. / SemiGlobalMatching::DISP_SCALE);
+        cout << "dispTiff channels " << dispTiff.channels() << endl;
+        cout << "dispTiff dtype " << dispTiff.type() << endl;
+        // dispTiff.convertTo(fdisp, CV_32F, 1. / SemiGlobalMatching::DISP_SCALE);
+        dispTiff.convertTo(fdisp, CV_32F);
         cout << "fdisp channels " << fdisp.channels() << endl;
         //        Mat D0_16u(D0.size(), CV_16U);
 
@@ -176,10 +203,11 @@ int main(int argc, char* argv[])
         std::vector<std::vector<int>> bboxes;
         const auto t3 = std::chrono::system_clock::now();
 
+        StixelWorld stixelWorld(stix_param);
         
         
         // ! 从计算视差到这里，一系列操作就是为了得到下面这个compute需要的视差图fdisp
-        // ! 所以在这之前的操作都可以省略, 直接通过tif 计算出来的tifdisp 替换fdisp
+        cout << "fdisp dtypy " << fdisp.type() << endl;
         stixelWorld.compute(fdisp, stixels, bboxes);
 
         cv::Mat deepImg = cv::Mat::zeros(fdisp.size(), fdisp.type());

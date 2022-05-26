@@ -3,6 +3,7 @@
 
 #include <opencv2/opencv.hpp>
 
+
 /** @brief Stixel struct
 */
 struct Stixel
@@ -13,6 +14,7 @@ struct Stixel
 	int width;                    //*< stixel width
 	float disp;                   //*< stixel average disparity
 };
+
 
 /** @brief StixelWorld class.
 
@@ -35,7 +37,7 @@ public:
 	*/
 	struct CameraParameters
 	{
-        // 这些会从camera.xml文件中读出
+        // 这些会从camera.yml文件中读出
 		float fu;                 //* x轴的焦距
 		float fv;                 //* y轴的焦距
 		float u0;                 //* 镜头中心点, 主点x
@@ -78,6 +80,8 @@ public:
 		}
 	};
 
+// Transformation between pixel coordinate and world coordinate
+
 
 	StixelWorld(const Parameters& param = Parameters());
 
@@ -97,4 +101,37 @@ private:
 	Parameters param_;
 };
 
+using CameraParameters = StixelWorld::CameraParameters;
+struct CoordinateTransform
+{
+    CoordinateTransform(const CameraParameters& camera) : camera(camera)
+    {
+        sinTilt = (sinf(camera.tilt));
+        cosTilt = (cosf(camera.tilt));
+        B = camera.baseline * camera.fu / camera.fv;
+    }
+
+    inline float toY(float d, int v) const
+    {
+        return (B / d) * ((v - camera.v0) * cosTilt + camera.fv * sinTilt);
+    }
+
+    inline float toZ(float d, int v) const
+    {
+        return (B / d) * (camera.fv * cosTilt - (v - camera.v0) * sinTilt);
+    }
+
+    inline float toV(float Y, float Z) const
+    {
+        return camera.fv * (Y * cosTilt - Z * sinTilt) / (Y * sinTilt + Z * cosTilt) + camera.v0;
+    }
+
+    inline float toD(float Y, float Z) const
+    {
+        return camera.baseline * camera.fu / (Y * sinTilt + Z * cosTilt);
+    }
+
+    CameraParameters camera;
+    float sinTilt, cosTilt, B;
+};
 #endif // !__STIXEL_WORLD_H__
