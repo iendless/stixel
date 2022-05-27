@@ -112,6 +112,7 @@ static void depthToDisp(cv::Mat& depthMat, cv::Mat& dispMat, CoordinateTransform
 }
 
 static void outputDispData(Mat& disp) {
+    imwrite("../transformDisp.png", disp);
     ofstream dispFile("/home/endless/demo/stixel/dispData.txt", ios::app);
     dispFile << cv::format(disp, cv::Formatter::FMT_DEFAULT) << endl;
     dispFile << endl;

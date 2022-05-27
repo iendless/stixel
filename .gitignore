@@ -2,3 +2,4 @@ build/
 opencv-4.0.0/
 .vscode/
 *.png
+*.tiff
