@@ -73,8 +73,8 @@ public:
 			stixelWidth = 7;
 			minDisparity = -1;
 			maxDisparity = 64;
-			roadEstimation = ROAD_ESTIMATION_AUTO;
 			camera = CameraParameters();
+			roadEstimation = ROAD_ESTIMATION_AUTO;
 		}
 	};
 
