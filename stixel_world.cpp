@@ -40,9 +40,9 @@ class FreeSpace
                 alpha1 = 2;
                 alpha2 = 1;     // ! 这个权重应该是需要调整的, 因为我们更关注地上的不平整
                 objectHeight = 0.5f;    
-                Cs = 50;
-                Ts = 32;
-                maxPixelJump = 100;
+                Cs = 25;
+                Ts = 16;
+                maxPixelJump = 50;
             }
         };
 
@@ -533,7 +533,6 @@ void StixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel>& stixels
     heightSegmentation.compute(columns, lowerPath_, upperPath_, camera);
 
     // extract disparity
-    std::cout << "stixels num " << stixels.size() << std::endl;
     stixels.clear();
     for (int u = 0; u < umax; u++)
     {
@@ -551,6 +550,7 @@ void StixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel>& stixels
         stixels.push_back(stixel);
         // std::cout << "stixels num " << stixels.size() << std::endl;
     }
+    std::cout << "stixels num " << stixels.size() << std::endl;
 
     std::vector<std::vector<Stixel>> objects;
     double oriDifferRadio = vmax*0.05;    // 棒状像素起点在20上下将加入同一个框

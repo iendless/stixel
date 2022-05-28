@@ -105,18 +105,15 @@ static void depthToDisp(cv::Mat& depthMat, cv::Mat& dispMat, CoordinateTransform
                 // cout << dispMat.at<float>(i, j) << endl;
             }
             else {
-                dispMat.at<float>(i, j) = 0;
+                dispMat.at<float>(i, j) = -1;
             }
         }
     }
 }
 
-static void outputDispData(Mat& disp) {
-    imwrite("../transformDisp.png", disp);
-    ofstream dispFile("/home/endless/demo/stixel/dispData.txt", ios::app);
-    dispFile << cv::format(disp, cv::Formatter::FMT_DEFAULT) << endl;
-    dispFile << endl;
-    dispFile.flush();
+static void outputImg(Mat& img, string dir, string dispName) {
+    string filePath = dir + dispName;
+    imwrite(filePath, img);
 }
 
 int main(int argc, char* argv[])
@@ -129,26 +126,12 @@ int main(int argc, char* argv[])
 
     string directory = argv[1];
 
-    DIR *dp, *dp1;     // * 文件夹指针
+    DIR *dp;     // * 文件夹指针
     struct dirent *ep;  // * 用于获取文件名
 
     string image2_dir;
-    image2_dir = directory + "/" + "image_2";
+    image2_dir = directory + "/" + "image_2/";
     dp = opendir(image2_dir.c_str());
-
-    string image3_dir;
-    image3_dir = directory + "/" + "image_3";
-    dp1 = opendir(image3_dir.c_str());
-
-    if (dp == NULL || dp1 ==  NULL) {
-        std::cerr << "Invalid folder structure under: " << directory << std::endl;
-        usage(argv);
-        exit(EXIT_FAILURE);
-    }
-
-    string I0_path;
-    string I1_path;
-
     SemiGlobalMatching::Parameters param;
     SemiGlobalMatching sgm(param);
     cv::Mat D0, D1, draw;
@@ -162,74 +145,69 @@ int main(int argc, char* argv[])
         if (!strcmp (ep->d_name, ".."))
             continue;
 
-
-        const auto t1 = std::chrono::system_clock::now();
-
+        string image_name = ep->d_name;
+        cv::Mat img = imread(image2_dir+image_name);
         // 不使用sgm 视差匹配算法, 用tiff 深度图替代
         // sgm.compute(I0_Gray, I1_Gray, D0, D1);    // ! 双目图像匹配 SGM算法
 
+        // 读取摄像头参数和tiff 图片
         StixelWorld::Parameters stix_param;
         const cv::FileStorage cvfs(argv[2], FileStorage::READ);
         bool opened = cvfs.isOpened();
         init_stix_param(stix_param, cvfs);
         CoordinateTransform coordinateTransform(stix_param.camera);
-        cv::Mat depthTiff = imread("../10001555884394.tif", IMREAD_UNCHANGED);
-        // cout << cv::format(depthTiff, cv::Formatter::FMT_DEFAULT) << endl;
+        string tiffName(image_name.begin(), image_name.end()-4);
+        tiffName += ".tif";
+        cv::Mat depthTiff = imread("../data/testForTiff/tiff/" + tiffName, IMREAD_UNCHANGED);
         cout << "depthTiff dtype " << depthTiff.type() << endl;
+        
+        // 计算视差
+        const auto t1 = std::chrono::system_clock::now();
         cv::Mat dispTiff = depthTiff;
         depthToDisp(depthTiff, dispTiff, coordinateTransform);
-
-
-
-	    
-	    
-
         Mat fdisp;
-
-        
         const auto t2 = std::chrono::system_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         cout << "disparity computation time: " << duration << "[msec]" << std::endl;
         
-        // 伪色彩加工
-        // dispTiff.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));    // 第三个参数是放缩尺度, 结果会乘以这个数
-        // cv::applyColorMap(draw, draw, cv::COLORMAP_JET);   
-        // draw.setTo(0, dispTiff == SemiGlobalMatching::DISP_INV);  // 添加一个mask, 进行数据清理, 具体没懂
-
-        // cv::imshow("disparity", draw);
+        // 伪色彩加工视差图并写入
+        dispTiff.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));    // 第三个参数是放缩尺度, 结果会乘以这个数
+        cv::applyColorMap(draw, draw, cv::COLORMAP_JET);   
+        draw.setTo(0, dispTiff == SemiGlobalMatching::DISP_INV);  // 添加一个mask, 进行数据清理, 具体没懂
+        string drawName(image_name.begin(), image_name.end()-4);
+        drawName += "Disp.png";
+        // ! 暂时写入不加颜色的disp
+        outputImg(dispTiff, "../data/testForTiff/transDisp/", drawName);
 
 
         cout << "dispTiff channels " << dispTiff.channels() << endl;
         cout << "dispTiff dtype " << dispTiff.type() << endl;
-        // dispTiff.convertTo(fdisp, CV_32F, 1. / SemiGlobalMatching::DISP_SCALE);
         dispTiff.convertTo(fdisp, CV_32F);
         cout << "fdisp channels " << fdisp.channels() << endl;
-        //        Mat D0_16u(D0.size(), CV_16U);
-        outputDispData(fdisp);
 
-        // calculate stixels
+        
+        
+        // ! 从计算视差到这里，以上一系列操作就是为了得到下面这个compute需要的视差图fdisp
+        // 计算柱状像素并统计计算时间
         std::vector<Stixel> stixels;
         std::vector<std::vector<int>> bboxes;
         const auto t3 = std::chrono::system_clock::now();
-
         StixelWorld stixelWorld(stix_param);
-        
-        
-        // ! 从计算视差到这里，一系列操作就是为了得到下面这个compute需要的视差图fdisp
-        cout << "fdisp dtypy " << fdisp.type() << endl;
         stixelWorld.compute(fdisp, stixels, bboxes);
-
-        cv::Mat deepImg = cv::Mat::zeros(fdisp.size(), fdisp.type());
-        // stixelWorld.computeDepth(fdisp, deepImg);
-        // cv::imshow("deep", deepImg);
-
-
-        cout << endl << " yes" << endl;
         const auto t4 = std::chrono::system_clock::now();
         const auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
         std::cout << "stixel computation time: " << 1e-3 * duration << "[msec]" << std::endl;
 
-        // bbox
+        // 绘制棒状像素并写入
+        cv::Mat showStixel = img.clone();
+        cv::Mat stixelImg = cv::Mat::zeros(img.size(), showStixel.type());
+        for(auto& stixel : stixels) {
+            drawStixel(stixelImg, stixel, dispToColor(stixel.disp, (float)param.numDisparities));
+        }
+        showStixel = showStixel + 0.5*stixelImg;
+        outputImg(showStixel, "../data/testForTiff/transStixel/", image_name);
+
+        // 写入框定数据
         for(auto &bbox : bboxes)
         {
             // 0 3 2 1 是 左上角坐标点x1 y1 和右下角坐标点 x2 y2 的坐标
@@ -238,10 +216,6 @@ int main(int argc, char* argv[])
             bboxFile << "(" << bbox[2] << "," << bbox[1] << ")" << endl;
             bboxFile.flush();
         }
-
-
-        
-        
     }
     bboxFile.close();
 
