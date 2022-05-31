@@ -200,6 +200,8 @@ int main(int argc, char* argv[])
         //        Mat D0_16u(D0.size(), CV_16U);
 
         string dispName(image_name.begin(), image_name.end()-4);
+        ofstream dispData("../data/testForTiff/smgDisp/"+dispName+".txt", ios::app);
+        dispData << cv::format(fdisp, cv::Formatter::FMT_DEFAULT) << endl;
         dispName += "Disp.png";
         outputImg(fdisp, "../data/testForTiff/smgDisp/", dispName);
 
@@ -263,11 +265,8 @@ int main(int argc, char* argv[])
 		// cv::imshow("stixels", showStixel);
         // std::cout << "/home/endless/stixel/data/stixelsImage" + image_name << std::endl;
         outputImg(showStixel, "../data/testForTiff/smgStixel/", image_name);
-        
 
 
-        // cv::imwrite("/home/endless/stixel/data/stixelsImage" + image_name, showStixel);
-        // waitKey();
         
     }
     bboxFile.close();
