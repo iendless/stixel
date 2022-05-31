@@ -76,6 +76,17 @@ static void drawStixel(cv::Mat& img, const Stixel& stixel, cv::Scalar color)
 	cv::rectangle(img, cv::Rect(tl, br), color, -1);
 }
 
+static void outputImg(Mat& img, string dir, string dispName) {
+    string filePath = dir + dispName;
+    imwrite(filePath, img);
+
+    // * 输出disp 数据值到txt 的代码，暂时不用
+    // ofstream dispFile("/home/endless/demo/stixel/dispData.txt", ios::app);
+    // dispFile << cv::format(disp, cv::Formatter::FMT_DEFAULT) << endl;
+    // dispFile << endl;
+    // dispFile.flush();
+}
+
 int main(int argc, char* argv[])
 {
     if (argc < 3)
@@ -102,7 +113,7 @@ int main(int argc, char* argv[])
     if (dp == NULL || dp1 ==  NULL) {
         std::cerr << "Invalid folder structure under: " << directory << std::endl;
         usage(argv);
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE); 
     }
 
     string I0_path;
@@ -188,6 +199,12 @@ int main(int argc, char* argv[])
         cout << "fdisp channels " << fdisp.channels() << endl;
         //        Mat D0_16u(D0.size(), CV_16U);
 
+        string dispName(image_name.begin(), image_name.end()-4);
+        ofstream dispData("../data/testForTiff/smgDisp/"+dispName+".txt", ios::app);
+        dispData << cv::format(fdisp, cv::Formatter::FMT_DEFAULT) << endl;
+        dispName += "Disp.png";
+        outputImg(fdisp, "../data/testForTiff/smgDisp/", dispName);
+
         // calculate stixels
         std::vector<Stixel> stixels;
         std::vector<std::vector<int>> bboxes;
@@ -217,10 +234,9 @@ int main(int argc, char* argv[])
         stixelWorld.compute(fdisp, stixels, bboxes);
 
         cv::Mat deepImg = cv::Mat::zeros(fdisp.size(), fdisp.type());
-        stixelWorld.computeDepth(fdisp, deepImg);
         // cv::imshow("deep", deepImg);
 
-
+        cout << "stixels num: " << stixels.size() << endl;
         cout << endl << " yes" << endl;
         const auto t4 = std::chrono::system_clock::now();
         const auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
@@ -247,13 +263,10 @@ int main(int argc, char* argv[])
 
 		showStixel = showStixel + 0.5 * stixelImg;
 		// cv::imshow("stixels", showStixel);
-        std::cout << "/home/endless/stixel/data/stixelsImage" + image_name << std::endl;
+        // std::cout << "/home/endless/stixel/data/stixelsImage" + image_name << std::endl;
+        outputImg(showStixel, "../data/testForTiff/smgStixel/", image_name);
 
-        
 
-
-        // cv::imwrite("/home/endless/stixel/data/stixelsImage" + image_name, showStixel);
-        // waitKey();
         
     }
     bboxFile.close();
