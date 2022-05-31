@@ -89,7 +89,7 @@ static void init_stix_param(StixelWorld::Parameters& stix_param, const cv::FileS
     stix_param.maxDisparity = 64;
 }
 
-static void depthToDisp(cv::Mat& depthMat, cv::Mat& dispMat, CoordinateTransform coordinateTransform) {
+static cv::Mat depthToDisp(cv::Mat& depthMat, cv::Mat dispMat, CoordinateTransform coordinateTransform) {
     cout << "depth channels: " << depthMat.channels() << endl;
     int height = depthMat.rows;
     int width = depthMat.cols;
@@ -101,14 +101,23 @@ static void depthToDisp(cv::Mat& depthMat, cv::Mat& dispMat, CoordinateTransform
         for(int j = 0 ; j < width; j++) {
             float curDep = depthMat.at<float>(i, j);
             if(!isnan(curDep) && !isinf(curDep)) {
-                dispMat.at<float>(i, j) = coordinateTransform.toD(0, depthMat.at<float>(i, j));
+                dispMat.at<float>(i, j) = coordinateTransform.toD(0, curDep);
+                continue;
                 // cout << dispMat.at<float>(i, j) << endl;
             }
-            else {
+            if(isnan(curDep)) {
+                // cout << "bad";
+                // cout << curDep << endl;
                 dispMat.at<float>(i, j) = -1;
+                continue;
+            }
+            if(isinf(curDep)) {
+                dispMat.at<float>(i, j) = 0;
+                continue;
             }
         }
     }
+    return dispMat;
 }
 
 static void outputImg(Mat& img, string dir, string dispName) {
@@ -161,14 +170,19 @@ int main(int argc, char* argv[])
         cv::Mat depthTiff = imread("../data/testForTiff/tiff/" + tiffName, IMREAD_UNCHANGED);
         cout << "depthTiff dtype " << depthTiff.type() << endl;
         
+                
         // 计算视差
         const auto t1 = std::chrono::system_clock::now();
-        cv::Mat dispTiff = depthTiff;
-        depthToDisp(depthTiff, dispTiff, coordinateTransform);
+        cv::Mat dispTiff = depthTiff.clone();
+        dispTiff = depthToDisp(depthTiff, dispTiff, coordinateTransform);
         Mat fdisp;
         const auto t2 = std::chrono::system_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         cout << "disparity computation time: " << duration << "[msec]" << std::endl;
+
+        // 查看disp 数值
+        ofstream depthTiffData("/home/endless/demo/stixel/data/testForTiff/transDisp/"+tiffName, ios::app);
+        depthTiffData << cv::format(dispTiff, cv::Formatter::FMT_DEFAULT);
         
         // 伪色彩加工视差图并写入
         dispTiff.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));    // 第三个参数是放缩尺度, 结果会乘以这个数
