@@ -5,8 +5,7 @@
 #include <omp.h>
 #endif
 
-using CameraParameters = StixelWorld::CameraParameters;
-using namespace std;
+
 
 struct Line
 {
@@ -20,38 +19,7 @@ struct Line
 };
 
 // Transformation between pixel coordinate and world coordinate
-struct CoordinateTransform
-{
-    CoordinateTransform(const CameraParameters& camera) : camera(camera)
-    {
-        sinTilt = (sinf(camera.tilt));
-        cosTilt = (cosf(camera.tilt));
-        B = camera.baseline * camera.fu / camera.fv;
-    }
 
-    inline float toY(float d, int v) const
-    {
-        return (B / d) * ((v - camera.v0) * cosTilt + camera.fv * sinTilt);
-    }
-
-    inline float toZ(float d, int v) const
-    {
-        return (B / d) * (camera.fv * cosTilt - (v - camera.v0) * sinTilt);
-    }
-
-    inline float toV(float Y, float Z) const
-    {
-        return camera.fv * (Y * cosTilt - Z * sinTilt) / (Y * sinTilt + Z * cosTilt) + camera.v0;
-    }
-
-    inline float toD(float Y, float Z) const
-    {
-        return camera.baseline * camera.fu / (Y * sinTilt + Z * cosTilt);
-    }
-
-    CameraParameters camera;
-    float sinTilt, cosTilt, B;
-};
 
 // Implementation of free space computation
 class FreeSpace

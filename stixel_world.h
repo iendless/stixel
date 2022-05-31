@@ -3,6 +3,10 @@
 
 #include <opencv2/opencv.hpp>
 
+
+using CameraParameters = StixelWorld::CameraParameters;
+using namespace std;
+
 /** @brief Stixel struct
 */
 struct Stixel
@@ -20,6 +24,40 @@ The class implements the static Stixel computation based on [1,2].
 [1] D. Pfeiffer, U. Franke: "Efficient Representation of Traffic Scenes by means of Dynamic Stixels"
 [2] H. Badino, U. Franke, and D. Pfeiffer, "The stixel world - a compact medium level representation of the 3d-world,"
 */
+
+struct CoordinateTransform
+{
+    CoordinateTransform(const CameraParameters& camera) : camera(camera)
+    {
+        sinTilt = (sinf(camera.tilt));
+        cosTilt = (cosf(camera.tilt));
+        B = camera.baseline * camera.fu / camera.fv;
+    }
+
+    inline float toY(float d, int v) const
+    {
+        return (B / d) * ((v - camera.v0) * cosTilt + camera.fv * sinTilt);
+    }
+
+    inline float toZ(float d, int v) const
+    {
+        return (B / d) * (camera.fv * cosTilt - (v - camera.v0) * sinTilt);
+    }
+
+    inline float toV(float Y, float Z) const
+    {
+        return camera.fv * (Y * cosTilt - Z * sinTilt) / (Y * sinTilt + Z * cosTilt) + camera.v0;
+    }
+
+    inline float toD(float Y, float Z) const
+    {
+        return camera.baseline * camera.fu / (Y * sinTilt + Z * cosTilt);
+    }
+
+    CameraParameters camera;
+    float sinTilt, cosTilt, B;
+};
+
 class StixelWorld
 {
 public:
