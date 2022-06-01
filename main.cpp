@@ -168,6 +168,7 @@ int main(int argc, char* argv[])
         string tiffName(image_name.begin(), image_name.end()-4);
         tiffName += ".tif";
         cv::Mat depthTiff = imread("../data/testForTiff/tiff/" + tiffName, IMREAD_UNCHANGED);
+        cout << "???" << depthTiff.channels() << endl;
         cout << "depthTiff dtype " << depthTiff.type() << endl;
         
                 
