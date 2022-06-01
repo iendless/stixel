@@ -150,7 +150,7 @@ static void outputImg(Mat& img, string dir, string dispName, int mode) {
 
 static Mat sgmComputeDisp(string image_name, Mat& D0, Mat& D1) {
     if (!strcmp (ep->d_name, "."))
-            exit(0);
+        exit(0);
     if (!strcmp (ep->d_name, ".."))
         exit(0);
 
@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
         std::vector<Stixel> stixels;
         std::vector<std::vector<int>> bboxes;
         const auto t3 = std::chrono::system_clock::now();
-        stixelWorld.compute(fdisp, stixels, bboxes);
+        stixelWorld.compute(D0, stixels, bboxes);
         const auto t4 = std::chrono::system_clock::now();
         const auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
         cout << "stixels num: " << stixels.size() << endl;
