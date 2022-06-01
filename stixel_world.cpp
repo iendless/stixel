@@ -42,9 +42,9 @@ class FreeSpace
                 alpha1 = 2;
                 alpha2 = 1;     // ! 这个权重应该是需要调整的, 因为我们更关注地上的不平整
                 objectHeight = 0.5f;    
-                Cs = 50;
-                Ts = 32;
-                maxPixelJump = 100;
+                Cs = 25;
+                Ts = 16;
+                maxPixelJump = 50;
             }
         };
 

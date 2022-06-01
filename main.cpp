@@ -28,9 +28,6 @@ ofstream bboxFile;
 ofstream dispFile;
 SemiGlobalMatching::Parameters param;
 
-
-
-
 void usage(char* argv[])
 {
     //Folder struct
@@ -113,7 +110,6 @@ static cv::Mat depthToDisp(cv::Mat& depthMat, cv::Mat dispMat, CoordinateTransfo
 
     float fu = coordinateTransform.camera.fu;
     float baseline = coordinateTransform.camera.baseline;
-
     for(int i = 0; i < height; i++) {
         for(int j = 0 ; j < width; j++) {
             float curDep = depthMat.at<float>(i, j);
@@ -137,6 +133,7 @@ static cv::Mat depthToDisp(cv::Mat& depthMat, cv::Mat dispMat, CoordinateTransfo
     return dispMat;
 }
 
+// mode 为 1 则将Mat 数据值输出到txt 文件
 static void outputImg(Mat& img, string dir, string dispName, int mode) {
     string filePath = dir + dispName;
     imwrite(filePath, img);
@@ -150,24 +147,6 @@ static void outputImg(Mat& img, string dir, string dispName, int mode) {
     }
 }
 
-static void outputDisp(Mat& D0, Mat& draw, string image_name) {
-
-
-    // 视差输出
-    D0.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));
-    cv::applyColorMap(draw, draw, cv::COLORMAP_JET);   
-    draw.setTo(0, D0 == SemiGlobalMatching::DISP_INV);
-    Mat fdisp;
-    D0.convertTo(fdisp, CV_32F, 1. / SemiGlobalMatching::DISP_SCALE);
-    string dispName(image_name.begin(), image_name.end()-4);
-    dispFile = ofstream(dispDir+dispName+".txt", ios::app);
-    dispFile << cv::format(fdisp, cv::Formatter::FMT_DEFAULT) << endl;
-    dispName += "Disp.png";
-    outputImg(fdisp, stixelDir, dispName);
-    
-    cout << "D0 channels " << D0.channels() << endl;
-    cout << "fdisp channels " << fdisp.channels() << endl;
-}
 
 static Mat sgmComputeDisp(string image_name, Mat& D0, Mat& D1) {
     if (!strcmp (ep->d_name, "."))
@@ -203,13 +182,17 @@ static Mat sgmComputeDisp(string image_name, Mat& D0, Mat& D1) {
     return I0;
 }
 
-static Mat depthComputeDisp(string image_name, Mat& D0, CoordinateTransform& coordinateTransform) {
-    cv::Mat depthTiff = imread(directory+tiff_dir+image_name, IMREAD_UNCHANGED);
-    string I0_path = directory + "/" + "image_2" + "/" + image_name;
+static Mat depthComputeDisp(string image_name, Mat D0, CoordinateTransform& coordinateTransform) {
+    string tiff_name(image_name.begin(), image_name.end()-4);
+    tiff_name += ".tif";
+    cout << tiff_name << endl;
+    cv::Mat depthTiff = imread(tiff_dir+ tiff_name, IMREAD_UNCHANGED);
+    string I0_path = image2_dir + image_name;
+    cout << tiff_dir+tiff_name << endl;
     Mat I0 = imread(I0_path);
     D0 = depthTiff.clone();
-    depthToDisp(depthTiff, D0, coordinateTransform);
-    return I0;
+    D0 = depthToDisp(depthTiff, D0, coordinateTransform);
+    return D0;
 }
 
 int main(int argc, char* argv[])
@@ -220,26 +203,25 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    // string directory = "/home/endless/stixel/data/";
+    // string directory = "/home/endless/stixel/data/testForTiff/";
     directory = argv[1];
-    mode = argv[2];
-    if(argv[2] == "smg") {
+    mode = argv[3];
+    if(mode == "smg") {
         dispDir = directory + "smgDisp/";
         stixelDir = directory + "smgStixel/";
-    } else if(argv[2] == "tiff") {
-        dispDir = directory + "tiffDisp/";
-        stixelDir = directory + "tiffStixel/";
+    } else if(mode == "tiff") {
+        cout << "tiff mode" << endl;
+        dispDir = directory + "transDisp/";
+        stixelDir = directory + "transStixel/";
     } else {
         cout << "wrong arg, comfirm them" << endl;
     }
 
-    image2_dir = directory + "/" + "image_2";
+    image2_dir = directory + "/" + "image_2/";
+    image3_dir = directory + "/" + "image_3/";
+    tiff_dir = directory + "/" + "tiff/";
     dp = opendir(image2_dir.c_str());
-
-    image3_dir = directory + "/" + "image_3";
     dp1 = opendir(image3_dir.c_str());
-
-    tiff_dir = directory + "/" + "tiff";
     dp2 = opendir(tiff_dir.c_str());
 
     if (dp == NULL || dp1 ==  NULL || dp2 == NULL) {
@@ -248,11 +230,11 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE); 
     }
 
-    cv::Mat D0, D1, draw, depthDiff;
-    bboxFile = ofstream(directory + "stixelBBox.txt", ios::app);
+    cv::Mat D0, D1, draw, fdisp;
+    bboxFile = ofstream(directory + "/stixelBBox.txt", ios::app);
     const cv::FileStorage cvfs(argv[2], FileStorage::READ);
-    // !
     StixelWorld::Parameters stix_param;
+    StixelWorld stixelWorld(stix_param);
     assert(cvfs.isOpened() == true);
     init_stix_param(stix_param, cvfs);
     CoordinateTransform coordinateTransform(stix_param.camera);
@@ -261,46 +243,43 @@ int main(int argc, char* argv[])
     while ((ep = readdir(dp)) != NULL) 
     {
         // Skip directories
+        if (!strcmp (ep->d_name, "."))
+            continue;
+        if (!strcmp (ep->d_name, ".."))
+            continue;
+
         string image_name = ep->d_name;
-        Mat I0;
+        Mat I0 = imread(image2_dir+image_name);
         if(argv[2] == "sgm") {
             const auto t1 = std::chrono::system_clock::now();
-            sgmComputeDisp(image_name, D0, D1);
+            I0 = sgmComputeDisp(image_name, D0, D1);
             const auto t2 = std::chrono::system_clock::now();
             const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
             std::cout << "disparity computation time: " << duration << "[msec]" << std::endl;
         } else {
-            I0 = depthComputeDisp(image_name, D0, coordinateTransform);
+            cout << "depthComputeDisp" << endl;
+            D0 = depthComputeDisp(image_name, D0, coordinateTransform);
         }
         
 
         // 视差输出
+        cout << D0.size() << endl;
+        D0.convertTo(fdisp, CV_32F);
         D0.convertTo(draw, CV_8U, 255. / (SemiGlobalMatching::DISP_SCALE * param.numDisparities));
         cv::applyColorMap(draw, draw, cv::COLORMAP_JET);   
         draw.setTo(0, D0 == SemiGlobalMatching::DISP_INV);
-        Mat fdisp;
-        D0.convertTo(fdisp, CV_32F, 1. / SemiGlobalMatching::DISP_SCALE);
         string dispName(image_name.begin(), image_name.end()-4);
-        outputImg(fdisp, stixelDir, dispName, 1);
-        
-        cout << "D0 channels " << D0.channels() << endl;
-        cout << "fdisp channels " << fdisp.channels() << endl;
-
+        dispName += "Disp.png";
+        outputImg(D0, dispDir, dispName, 1);
 
         // 计算stixels
         std::vector<Stixel> stixels;
         std::vector<std::vector<int>> bboxes;
         const auto t3 = std::chrono::system_clock::now();
-        StixelWorld::Parameters stix_param;
-	    const cv::FileStorage cvfs(argv[2], FileStorage::READ);
-        bool opened = cvfs.isOpened();
-        StixelWorld stixelWorld(stix_param);
-
         stixelWorld.compute(fdisp, stixels, bboxes);
         const auto t4 = std::chrono::system_clock::now();
         const auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
         cout << "stixels num: " << stixels.size() << endl;
-        cout << endl << " yes" << endl;
         std::cout << "stixel computation time: " << 1e-3 * duration2 << "[msec]" << std::endl;
 
 
@@ -310,7 +289,7 @@ int main(int argc, char* argv[])
         for (const auto& stixel : stixels)
             drawStixel(stixelImg, stixel, dispToColor(stixel.disp, (float)param.numDisparities));
 		showStixel = showStixel + 0.5 * stixelImg;
-        outputImg(showStixel, "../data/testForTiff/smgStixel/", image_name);
+        outputImg(showStixel, stixelDir, image_name, 0);
 
         // 写入bbox
         for(auto &bbox : bboxes)
